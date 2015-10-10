@@ -3,9 +3,6 @@ package repo
 import (
 	"encoding/xml"
 	"fmt"
-	"io"
-	"net/http"
-	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -73,30 +70,10 @@ func nameOf(d *Dep) string {
 func download(d *Dep, dir, ver string, t Type) error {
 
 	dst := jarNameFor(d, ver, t)
-	res, err := util.GetWithCheck(fmt.Sprintf("%s/%s/%s",
-		d.BaseURL(),
-		ver,
-		dst))
-	if err != nil {
-		return err
-	}
-	defer res.Body.Close()
 
-	if err := checkStatus(res); err != nil {
-		return err
-	}
-
-	w, err := os.Create(filepath.Join(dir, dst))
-	if err != nil {
-		return err
-	}
-	defer w.Close()
-
-	if _, err := io.Copy(w, res.Body); err != nil {
-		return err
-	}
-
-	return nil
+	return util.Fetch(
+		filepath.Join(dir, dst),
+		fmt.Sprintf("%s/%s/%s", d.BaseURL(), ver, dst))
 }
 
 // Download ...
@@ -189,10 +166,6 @@ func depsOf(d *Dep, ver string) ([]*Dep, error) {
 	}
 	defer res.Body.Close()
 
-	if err := checkStatus(res); err != nil {
-		return nil, err
-	}
-
 	var p struct {
 		Deps []*struct {
 			Org      string `xml:"groupId"`
@@ -234,13 +207,6 @@ type VersionInfo struct {
 	Release  string   `xml:"versioning>release"`
 }
 
-func checkStatus(res *http.Response) error {
-	if res.StatusCode != http.StatusOK {
-		return fmt.Errorf("http status: %d", res.StatusCode)
-	}
-	return nil
-}
-
 // Versions ...
 func (d *Dep) Versions() (*VersionInfo, error) {
 	res, err := util.GetWithCheck(fmt.Sprintf("%s/maven-metadata.xml", d.BaseURL()))
@@ -248,10 +214,6 @@ func (d *Dep) Versions() (*VersionInfo, error) {
 		return nil, err
 	}
 	defer res.Body.Close()
-
-	if err := checkStatus(res); err != nil {
-		return nil, err
-	}
 
 	nfo := &VersionInfo{}
 	if err := xml.NewDecoder(res.Body).Decode(nfo); err != nil {
