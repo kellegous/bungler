@@ -44,5 +44,4 @@ bungler com.google.guava/guava junit/junit
 ```
 
 ## TODO:
- * Bungler should not download jars if they are already present, unless a force flag is given.
  * Support all the random shit that maven supports.
