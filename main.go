@@ -46,6 +46,7 @@ func parseTypes(f string) ([]repo.Type, error) {
 func main() {
 	flagTypes := flag.String("types", "jar,src", "")
 	flagDst := flag.String("dst", ".", "")
+	flagRec := flag.Bool("recursive", true, "")
 	flag.Parse()
 
 	types, err := parseTypes(*flagTypes)
@@ -65,7 +66,7 @@ func main() {
 			log.Panic(err)
 		}
 
-		if err := dep.Download(*flagDst, types); err != nil {
+		if err := dep.Download(*flagDst, *flagRec, types); err != nil {
 			log.Panic(err)
 		}
 	}

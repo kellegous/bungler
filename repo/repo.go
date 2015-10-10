@@ -77,7 +77,7 @@ func download(d *Dep, dir, ver string, t Type) error {
 }
 
 // Download ...
-func (d *Dep) Download(dir string, types []Type) error {
+func (d *Dep) Download(dir string, recursive bool, types []Type) error {
 	fmt.Printf("%s\n", nameOf(d))
 
 	ver, err := resolveVersion(d)
@@ -91,13 +91,17 @@ func (d *Dep) Download(dir string, types []Type) error {
 		}
 	}
 
+	if !recursive {
+		return nil
+	}
+
 	deps, err := depsOf(d, ver)
 	if err != nil {
 		return err
 	}
 
 	for _, dep := range deps {
-		if err := dep.Download(dir, types); err != nil {
+		if err := dep.Download(dir, recursive, types); err != nil {
 			return err
 		}
 	}
@@ -158,6 +162,11 @@ func versionFrom(ver string) string {
 	return ""
 }
 
+func resolveVarsHackily(p *Dep, c *Dep) {
+	c.Org = strings.Replace(c.Org, "${project.groupId}", p.Org, -1)
+	c.Version = strings.Replace(c.Version, "${project.version}", p.Version, -1)
+}
+
 func depsOf(d *Dep, ver string) ([]*Dep, error) {
 	res, err := util.GetWithCheck(
 		fmt.Sprintf("%s/%s/%s-%s.pom", d.BaseURL(), ver, d.Artifact, ver))
@@ -181,20 +190,24 @@ func depsOf(d *Dep, ver string) ([]*Dep, error) {
 	}
 
 	var deps []*Dep
-	for _, d := range p.Deps {
-		if d.Optional {
+	for _, dep := range p.Deps {
+		if dep.Optional {
 			continue
 		}
 
-		if d.Scope != "" && d.Scope != "runtime" {
+		if dep.Scope != "" && dep.Scope != "runtime" {
 			continue
 		}
 
-		deps = append(deps, &Dep{
-			Org:      d.Org,
-			Artifact: d.Artifact,
-			Version:  versionFrom(d.Version),
-		})
+		dc := &Dep{
+			Org:      dep.Org,
+			Artifact: dep.Artifact,
+			Version:  dep.Version,
+		}
+
+		resolveVarsHackily(d, dc)
+
+		deps = append(deps, dc)
 	}
 
 	return deps, nil
